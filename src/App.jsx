@@ -25,7 +25,7 @@ try {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer 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'
+      'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
     },
     body: JSON.stringify({
       model: 'llama-3.1-8b-instant',
