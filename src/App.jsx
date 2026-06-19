@@ -6,7 +6,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 const PERSONAS = [
   { id: 'general', label: '🤖 General Assistant', prompt: 'You are a helpful AI assistant.' },
   { id: 'code', label: '👨‍💻 Code Helper', prompt: 'You are an expert programmer. Always provide code examples with explanations. Use markdown code blocks.' },
-  { id: 'support', label: '🎧 Customer Support', prompt: 'You are a friendly customer support agent. Be concise, empathetic and solution-focused.' },
+  { id: 'support', label: '🎧 Customer Support', prompt: 'You are a friendly customer support agent for a tech startup. Be concise, empathetic and solution-focused. Do not invent a company name or personal name unless asked.' },
   { id: 'business', label: '💼 Business Advisor', prompt: 'You are a business consultant. Give practical, actionable advice for entrepreneurs and startups.' },
 ]
 
@@ -57,6 +57,40 @@ function App() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
+  const [isListening, setIsListening] = useState(false)
+const recognitionRef = useRef(null)
+const [voiceLang, setVoiceLang] = useState('en-US')
+const [showLangMenu, setShowLangMenu] = useState(false)
+useEffect(() => {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+  if (!SpeechRecognition) return
+
+  const recognition = new SpeechRecognition()
+  recognition.continuous = false
+  recognition.interimResults = false
+  recognition.lang = voiceLang
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript
+    setInput(prev => prev + transcript)
+  }
+
+  recognition.onend = () => setIsListening(false)
+  recognitionRef.current = recognition
+}, [voiceLang])
+const toggleListening = () => {
+  if (!recognitionRef.current) {
+    alert('Voice input is not supported in this browser. Try Chrome.')
+    return
+  }
+  if (isListening) {
+    recognitionRef.current.stop()
+    setIsListening(false)
+  } else {
+    recognitionRef.current.start()
+    setIsListening(true)
+  }
+}
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -106,7 +140,11 @@ function App() {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') sendMessage()
   }
-
+const setReaction = (index, type) => {
+  setMessages(prev => prev.map((m, i) =>
+    i === index ? { ...m, reaction: m.reaction === type ? null : type } : m
+  ))
+}
 return (
     <>
       <div className="header">
@@ -132,8 +170,20 @@ return (
               {msg.role === 'bot' ? '🤖' : '👤'}
             </div>
             <div className={`message ${msg.role}`}>
-              {msg.role === 'bot' ? <BotMessage text={msg.text} /> : msg.text}
-            </div>
+  {msg.role === 'bot' ? <BotMessage text={msg.text} /> : msg.text}
+  {msg.role === 'bot' && i > 0 && (
+    <div className="reactions">
+      <button
+        className={`reaction-btn ${msg.reaction === 'up' ? 'active' : ''}`}
+        onClick={() => setReaction(i, 'up')}
+      >👍</button>
+      <button
+        className={`reaction-btn ${msg.reaction === 'down' ? 'active' : ''}`}
+        onClick={() => setReaction(i, 'down')}
+      >👎</button>
+    </div>
+  )}
+</div>
           </div>
         ))}
         {loading && (
@@ -147,15 +197,49 @@ return (
 
       <div className="input-wrapper">
         <div className="input-area">
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            disabled={loading}
-          />
-          <button onClick={sendMessage} disabled={loading}>Send →</button>
-        </div>
+<div className="lang-picker">
+  <button
+    className="lang-current"
+    onClick={() => setShowLangMenu(!showLangMenu)}
+    type="button"
+  >
+    {voiceLang.split('-')[0].toUpperCase()}
+  </button>
+  {showLangMenu && (
+    <div className="lang-dropdown">
+      {[
+        { code: 'en-US', label: 'EN' },
+        { code: 'de-DE', label: 'DE' },
+        { code: 'ru-RU', label: 'RU' },
+        { code: 'uk-UA', label: 'UA' },
+      ].map(lang => (
+        <button
+  key={lang.code}
+  className={`lang-option ${voiceLang === lang.code ? 'active' : ''}`}
+  onClick={() => { setVoiceLang(lang.code); setShowLangMenu(false) }}
+>
+  {lang.label}
+</button>
+      ))}
+    </div>
+  )}
+</div>
+<button
+  onClick={toggleListening}
+  className={`mic-btn ${isListening ? 'listening' : ''}`}
+  type="button"
+>
+  {isListening ? '🔴' : '🎤'}
+</button>
+  <input
+    value={input}
+    onChange={e => setInput(e.target.value)}
+    onKeyDown={handleKeyDown}
+    placeholder="Type a message..."
+    disabled={loading}
+  />
+  <button onClick={sendMessage} disabled={loading}>Send →</button>
+</div>
       </div>
     </>
   )
